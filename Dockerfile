@@ -1,0 +1,30 @@
+# 构建阶段
+FROM golang:1.17-alpine AS builder
+
+WORKDIR /app
+
+# 复制依赖文件
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 复制源代码
+COPY . .
+
+# 构建
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o schema-analyzer cmd/analyzer/main.go
+
+# 运行阶段
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+# 从构建阶段复制二进制文件
+COPY --from=builder /app/schema-analyzer .
+
+# 创建输出目录
+RUN mkdir -p /output
+
+ENTRYPOINT ["./schema-analyzer"]
+CMD ["--help"]

@@ -1,0 +1,41 @@
+# Binaries
+schema-analyzer
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+output/
+test_output/
+test_ai_output/
+*_analysis/
+*_output/
+
+# Go
+vendor/
+*.out
+go.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sensitive
+*.key
+*password*
+*secret*
+
+# Cache
+.cache.db
+*.db

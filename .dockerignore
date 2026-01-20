@@ -1,0 +1,29 @@
+# Binaries
+schema-analyzer
+*.exe
+
+# Output
+output/
+*.json
+*.md
+*.mmd
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Docs
+docs/
+examples/
+*.md
+!README.md
+
+# Test
+*_test.go

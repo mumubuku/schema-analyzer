@@ -1,0 +1,42 @@
+# Schema Analyzer 配置示例
+
+# SQL Server 配置
+sqlserver:
+  connection: "server=localhost;user id=sa;password=yourpass;database=U8"
+  sample_size: 1000
+  output: "./output"
+
+# MySQL 配置
+mysql:
+  connection: "user:pass@tcp(localhost:3306)/dbname"
+  schema: "dbname"
+  sample_size: 1000
+  output: "./output"
+
+# 分析选项
+analysis:
+  # 推断外键的最小置信度阈值
+  min_confidence: 0.5
+  
+  # 枚举表最大行数
+  enum_max_rows: 1000
+  
+  # 是否分析视图
+  analyze_views: false
+  
+  # 是否分析存储过程
+  analyze_procedures: false
+
+# 输出选项
+output:
+  # 输出格式
+  formats:
+    - json
+    - markdown
+    - mermaid
+  
+  # 是否包含低置信度关系
+  include_low_confidence: false
+  
+  # 是否脱敏
+  anonymize: false
