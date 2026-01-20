@@ -1,5 +1,6 @@
 # Binaries
 schema-analyzer
+schema-analyzer-server
 *.exe
 *.dll
 *.so
