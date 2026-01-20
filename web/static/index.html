@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schema Analyzer - 数据库结构分析器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .progress-message {
+            margin-top: 10px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .result-container {
+            display: none;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .result-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 600px;
+            overflow: auto;
+        }
+        
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Schema Analyzer</h1>
+            <p>数据库结构分析器 - 自动推断表关系 + AI 增强字段解释</p>
+        </div>
+        
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">数据库连接配置</h2>
+            
+            <form id="analysisForm">
+                <div class="form-group">
+                    <label>数据库类型</label>
+                    <select id="dbType" name="db_type" required>
+                        <option value="mysql">MySQL</option>
+                        <option value="sqlserver">SQL Server</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>主机地址</label>
+                        <input type="text" id="host" name="host" value="localhost" required>
+                    </div>
+                    <div class="form-group">
+                        <label>端口</label>
+                        <input type="text" id="port" name="port" value="3306" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="username" name="username" value="root" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>数据库名</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="database" name="database" required style="flex: 1;">
+                            <button type="button" class="btn" onclick="listDatabases()" style="width: auto; padding: 12px 20px; background: #28a745;">
+                                📋 选择
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group" id="schemaGroup">
+                        <label>Schema（MySQL 自动同步）</label>
+                        <input type="text" id="schema" name="schema" placeholder="与数据库名相同">
+                        <small style="color: #666; font-size: 12px;">💡 MySQL 中 schema = database，会自动填充</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" class="btn" onclick="testConnection()" style="background: #17a2b8; margin-bottom: 10px;">
+                        🔌 测试连接
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label>采样大小</label>
+                    <input type="number" id="sampleSize" name="sample_size" value="1000" min="100" max="10000">
+                    <small style="color: #666; font-size: 12px;">
+                        💡 从每个表随机抽取的行数用于统计分析<br>
+                        建议：小表1000，中表500，大表200
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableAI" name="enable_ai">
+                        <label for="enableAI" style="margin: 0;">启用 AI 增强（需要阿里云 API Key）</label>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="apiKeyGroup" style="display: none;">
+                    <label>阿里云 API Key</label>
+                    <input type="text" id="apiKey" name="api_key" placeholder="sk-xxxxx">
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">开始分析</button>
+            </form>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <div class="progress-message" id="progressMessage">准备中...</div>
+            </div>
+        </div>
+        
+        <div class="card result-container" id="resultContainer">
+            <h2 style="margin-bottom: 20px;">分析结果</h2>
+            
+            <div class="stats" id="stats"></div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('dict')">数据字典</button>
+                <button class="tab" onclick="switchTab('er')">ER 图</button>
+                <button class="tab" onclick="switchTab('json')">JSON 数据</button>
+            </div>
+            
+            <div class="tab-content active" id="dict-content">
+                <div class="result-content" id="dictResult"></div>
+            </div>
+            
+            <div class="tab-content" id="er-content">
+                <div class="result-content">
+                    <pre id="erResult"></pre>
+                    <p style="margin-top: 10px; color: #666;">
+                        💡 复制上面的内容到 <a href="https://mermaid.live/" target="_blank">Mermaid Live Editor</a> 查看图形
+                    </p>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="json-content">
+                <div class="result-content">
+                    <pre id="jsonResult"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
