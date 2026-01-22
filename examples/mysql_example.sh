@@ -2,12 +2,12 @@
 
 # MySQL 数据库分析示例脚本
 
-# 配置
+# 配置 - 请根据实际情况修改
 DB_HOST="localhost"
 DB_PORT="3306"
-DB_USER="root"
-DB_PASS="password"
-DB_SCHEMA="business_db"
+DB_USER="your_username"
+DB_PASS="your_password"
+DB_SCHEMA="your_database"
 OUTPUT_DIR="./mysql_analysis_$(date +%Y%m%d_%H%M%S)"
 
 echo "🔍 开始分析 MySQL 数据库..."

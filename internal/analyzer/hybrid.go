@@ -30,15 +30,33 @@ func (h *HybridAnalyzer) AnalyzeWithAI(meta *adapter.SchemaMetadata) (*EnhancedS
 		Tables: make(map[string]*EnhancedTable),
 	}
 
-	// 1. 先做关系推断（算法）
-	fmt.Println("🔗 推断表间关系...")
-	edges, err := h.inferer.InferRelationships(meta)
-	if err != nil {
-		return nil, err
+	// 1. AI 分析表的意义
+	fmt.Println("🤖 AI 分析表的意义...")
+	tableExplanations := make(map[string]*ai.TableExplanation)
+	for _, table := range meta.Tables {
+		explanation, err := h.aiClient.AnalyzeTableMeaning(table.Name, table.Columns)
+		if err != nil {
+			fmt.Printf("  ⚠️  分析表 %s 失败: %v\n", table.Name, err)
+			continue
+		}
+		tableExplanations[table.Name] = explanation
+		fmt.Printf("  ✓ %s: %s\n", table.Name, explanation.ChineseName)
 	}
-	enhanced.Relationships = edges
 
-	// 2. 分类字段：标准字段 vs 自定义字段
+	// 2. AI 分析表之间的关系
+	fmt.Println("\n🤖 AI 分析表之间的关系...")
+	relationships, err := h.aiClient.AnalyzeTableRelationships(meta.Tables)
+	if err != nil {
+		fmt.Printf("  ⚠️  分析表关系失败: %v\n", err)
+	} else {
+		enhanced.TableRelationships = relationships
+		fmt.Printf("  ✓ 发现 %d 个表关系\n", len(relationships))
+		for _, rel := range relationships {
+			fmt.Printf("    - %s -> %s (%s)\n", rel.FromTable, rel.ToTable, rel.RelationType)
+		}
+	}
+
+	// 3. 分类字段：标准字段 vs 自定义字段
 	standardFields := []ai.FieldContext{}
 	customFields := make(map[string][]string) // table -> custom columns
 
@@ -46,6 +64,11 @@ func (h *HybridAnalyzer) AnalyzeWithAI(meta *adapter.SchemaMetadata) (*EnhancedS
 		enhancedTable := &EnhancedTable{
 			Name:    table.Name,
 			Columns: make(map[string]*EnhancedColumn),
+		}
+
+		// 添加表解释
+		if exp, ok := tableExplanations[table.Name]; ok {
+			enhancedTable.Explanation = exp
 		}
 
 		for _, col := range table.Columns {
@@ -73,25 +96,52 @@ func (h *HybridAnalyzer) AnalyzeWithAI(meta *adapter.SchemaMetadata) (*EnhancedS
 	// 3. 批量解释标准字段（AI）
 	if len(standardFields) > 0 {
 		fmt.Printf("🤖 AI 解释 %d 个标准字段...\n", len(standardFields))
-		explanations, err := h.aiClient.BatchExplain(standardFields)
-		if err != nil {
-			fmt.Printf("⚠️  AI 解释失败: %v，继续使用算法\n", err)
-		} else {
-			// 应用 AI 解释
-			for _, field := range standardFields {
-				if exp, ok := explanations[field.ColumnName]; ok {
-					col := enhanced.Tables[field.TableName].Columns[field.ColumnName]
-					col.Explanation = exp
+		
+		// 分批处理，每批最多 50 个字段
+		batchSize := 50
+		totalBatches := (len(standardFields) + batchSize - 1) / batchSize
+		
+		for i := 0; i < len(standardFields); i += batchSize {
+			end := i + batchSize
+			if end > len(standardFields) {
+				end = len(standardFields)
+			}
+			
+			batch := standardFields[i:end]
+			batchNum := i/batchSize + 1
+			fmt.Printf("  处理第 %d/%d 批 (%d 个字段)...\n", batchNum, totalBatches, len(batch))
+			
+			explanations, err := h.aiClient.BatchExplain(batch)
+			if err != nil {
+				fmt.Printf("  ⚠️  第 %d 批 AI 解释失败: %v，跳过\n", batchNum, err)
+			} else {
+				// 应用 AI 解释
+				for _, field := range batch {
+					if exp, ok := explanations[field.ColumnName]; ok {
+						col := enhanced.Tables[field.TableName].Columns[field.ColumnName]
+						col.Explanation = exp
+					}
 				}
+				fmt.Printf("  ✓ 第 %d 批完成\n", batchNum)
 			}
 		}
+		
+		fmt.Printf("✓ AI 解释完成\n")
 	}
 
-	// 4. 推断自定义字段（基于关系 + AI）
+	// 4. 推断自定义字段（简化版，不依赖关系推断）
 	fmt.Printf("🔍 推断 %d 个表的自定义字段...\n", len(customFields))
 	for tableName, columns := range customFields {
 		for _, colName := range columns {
-			explanation := h.inferCustomFieldMeaning(tableName, colName, edges, enhanced)
+			// 简化版：给自定义字段一个默认解释
+			explanation := &ai.FieldExplanation{
+				ColumnName:      colName,
+				ChineseName:     "自定义字段",
+				Description:     "业务自定义扩展字段",
+				BusinessMeaning: "根据具体业务场景确定含义",
+				Confidence:      0.3,
+				Source:          "ai_inferred",
+			}
 			col := enhanced.Tables[tableName].Columns[colName]
 			col.Explanation = explanation
 		}
@@ -228,12 +278,14 @@ func isCustomField(columnName string) bool {
 type EnhancedSchema struct {
 	Tables        map[string]*EnhancedTable
 	Relationships []*graph.Edge
+	TableRelationships []ai.TableRelationship
 }
 
 // EnhancedTable 增强的表
 type EnhancedTable struct {
-	Name    string
-	Columns map[string]*EnhancedColumn
+	Name        string
+	Columns     map[string]*EnhancedColumn
+	Explanation *ai.TableExplanation
 }
 
 // EnhancedColumn 增强的列

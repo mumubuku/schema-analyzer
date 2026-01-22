@@ -24,6 +24,8 @@ func NewRelationshipInferer(adapter adapter.DBAdapter) *RelationshipInferer {
 func (r *RelationshipInferer) InferRelationships(meta *adapter.SchemaMetadata) ([]*graph.Edge, error) {
 	var edges []*graph.Edge
 	
+	fmt.Printf("  正在分析 %d 个表的关系...\n", len(meta.Tables))
+	
 	// 构建主键映射
 	pkMap := make(map[string][]string) // table -> pk columns
 	for _, table := range meta.Tables {
@@ -33,6 +35,28 @@ func (r *RelationshipInferer) InferRelationships(meta *adapter.SchemaMetadata) (
 			}
 		}
 	}
+	
+	totalComparisons := 0
+	completedComparisons := 0
+	
+	// 预计算总比较次数
+	for _, fromTable := range meta.Tables {
+		for _, fromCol := range fromTable.Columns {
+			if !fromCol.IsPrimaryKey {
+				for _, toTable := range meta.Tables {
+					if fromTable.Name != toTable.Name {
+						for _, toCol := range toTable.Columns {
+							if toCol.IsPrimaryKey {
+								totalComparisons++
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	fmt.Printf("  需要进行 %d 次列比较...\n", totalComparisons)
 	
 	// 遍历所有表的所有列，寻找可能的外键
 	for _, fromTable := range meta.Tables {
@@ -53,19 +77,28 @@ func (r *RelationshipInferer) InferRelationships(meta *adapter.SchemaMetadata) (
 						continue
 					}
 					
+					completedComparisons++
+					if completedComparisons%100 == 0 {
+						progress := float64(completedComparisons) / float64(totalComparisons) * 100
+						fmt.Printf("  进度: %.1f%% (%d/%d)\n", progress, completedComparisons, totalComparisons)
+					}
+					
 					// 计算关系置信度
 					edge := r.calculateRelationship(
 						fromTable.Name, fromCol,
 						toTable.Name, toCol,
 					)
 					
-					if edge != nil && edge.Confidence > 0.5 {
+					// 降低置信度阈值到 0.3
+					if edge != nil && edge.Confidence > 0.3 {
 						edges = append(edges, edge)
 					}
 				}
 			}
 		}
 	}
+	
+	fmt.Printf("  完成！共发现 %d 个关系\n", len(edges))
 	
 	return edges, nil
 }
@@ -104,7 +137,7 @@ func (r *RelationshipInferer) calculateRelationship(
 	
 	// 3. 值集合包含 (权重 0.5) - 最重要的证据
 	containmentScore, err := r.calculateValueContainment(fromTable, fromCol.Name, toTable, toCol.Name)
-	if err == nil && containmentScore > 0.5 {
+	if err == nil && containmentScore > 0.3 {
 		evidences = append(evidences, graph.Evidence{
 			Type:        "value_containment",
 			Score:       containmentScore,
@@ -115,6 +148,11 @@ func (r *RelationshipInferer) calculateRelationship(
 	}
 	
 	if len(evidences) == 0 {
+		return nil
+	}
+	
+	// 降低置信度阈值到 0.3，更容易发现关系
+	if totalScore < 0.3 {
 		return nil
 	}
 	

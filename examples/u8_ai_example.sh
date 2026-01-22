@@ -2,15 +2,15 @@
 
 # U8 数据库 AI 增强分析示例
 
-# 配置
-DB_SERVER="192.168.1.100"
+# 配置 - 请根据实际情况修改
+DB_SERVER="your_server_ip"
 DB_USER="sa"
-DB_PASS="YourPassword"
-DB_NAME="UFDATA_001_2023"
+DB_PASS="your_password"
+DB_NAME="your_database_name"
 OUTPUT_DIR="./u8_ai_analysis_$(date +%Y%m%d_%H%M%S)"
 
 # 阿里云 API Key（从环境变量或直接设置）
-# export DASHSCOPE_API_KEY="sk-xxxxx"
+# export DASHSCOPE_API_KEY="your_api_key_here"
 
 echo "🔍 开始 AI 增强分析 U8 数据库..."
 echo "服务器: $DB_SERVER"

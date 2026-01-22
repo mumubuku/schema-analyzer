@@ -156,25 +156,40 @@ func (m *EnhancedMarkdownRenderer) renderTableRelations(sb *strings.Builder, g *
 	
 	for _, rel := range relations {
 		props := rel.Properties
-		fromTable := props["from_table"].(string)
-		fromCol := props["from_column"].(string)
-		toTable := props["to_table"].(string)
-		toCol := props["to_column"].(string)
 		
-		relType := "外键"
-		if rel.Type == graph.EdgeTypeInferredFK {
-			relType = "推断外键"
-		}
-		
-		sb.WriteString(fmt.Sprintf("- **%s** `%s.%s` → `%s.%s` (置信度: %.2f)\n",
-			relType, fromTable, fromCol, toTable, toCol, rel.Confidence))
-		
-		// 输出证据
-		if len(rel.Evidence) > 0 {
-			sb.WriteString("  - 证据:\n")
-			for _, ev := range rel.Evidence {
-				sb.WriteString(fmt.Sprintf("    - %s (%.2f): %s\n", 
-					ev.Description, ev.Score, ev.Details))
+		// 检查是否是 AI 推断的表关系（只有表级别的关系）
+		if _, hasFromCol := props["from_column"]; !hasFromCol {
+			// AI 推断的表关系
+			fromTable := props["from_table"].(string)
+			toTable := props["to_table"].(string)
+			relType := props["relation_type"].(string)
+			description := props["description"].(string)
+			
+			sb.WriteString(fmt.Sprintf("- **%s** `%s` → `%s` (置信度: %.2f)\n",
+				relType, fromTable, toTable, rel.Confidence))
+			sb.WriteString(fmt.Sprintf("  - 描述: %s\n", description))
+		} else {
+			// 传统的列级别关系
+			fromTable := props["from_table"].(string)
+			fromCol := props["from_column"].(string)
+			toTable := props["to_table"].(string)
+			toCol := props["to_column"].(string)
+			
+			relType := "外键"
+			if rel.Type == graph.EdgeTypeInferredFK {
+				relType = "推断外键"
+			}
+			
+			sb.WriteString(fmt.Sprintf("- **%s** `%s.%s` → `%s.%s` (置信度: %.2f)\n",
+				relType, fromTable, fromCol, toTable, toCol, rel.Confidence))
+			
+			// 输出证据
+			if len(rel.Evidence) > 0 {
+				sb.WriteString("  - 证据:\n")
+				for _, ev := range rel.Evidence {
+					sb.WriteString(fmt.Sprintf("    - %s (%.2f): %s\n", 
+						ev.Description, ev.Score, ev.Details))
+				}
 			}
 		}
 	}

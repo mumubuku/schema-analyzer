@@ -91,7 +91,6 @@ func runScan(cmd *cobra.Command, args []string) {
 	g := graph.NewSchemaGraph()
 
 	// 创建规则引擎解释器
-	ruleExplainer := analyzer.NewRuleBasedExplainer()
 
 	// 添加表和列节点
 	for _, table := range meta.Tables {
@@ -118,9 +117,6 @@ func runScan(cmd *cobra.Command, args []string) {
 				distinctRate = float64(stats.DistinctCount) / float64(stats.TotalRows)
 			}
 
-			// 使用规则引擎解释字段
-			explanation := ruleExplainer.Explain(table.Name, col.Name, col.DataType, stats)
-
 			colNode := &graph.Node{
 				ID:   fmt.Sprintf("%s.%s", table.Name, col.Name),
 				Type: graph.NodeTypeColumn,
@@ -133,35 +129,21 @@ func runScan(cmd *cobra.Command, args []string) {
 					"is_primary_key":      col.IsPrimaryKey,
 					"null_ratio":          nullRatio,
 					"distinct_rate":       distinctRate,
-					"ai_chinese_name":     explanation.ChineseName,
-					"ai_description":      explanation.Description,
-					"ai_business_meaning": explanation.BusinessMeaning,
-					"ai_confidence":       explanation.Confidence,
-					"ai_source":           "rule_based",
+					"ai_chinese_name":     "",
+					"ai_description":      "",
+					"ai_business_meaning": "",
+					"ai_confidence":       0.0,
 				},
 			}
 			g.AddNode(colNode)
 		}
 	}
 
-	fmt.Println("✓ Graph 构建完成（已添加字段解释）")
+	fmt.Println("✓ Graph 构建完成")
 
 	// 3. AI 增强分析（可选）
 	if enableAI {
 		runAIEnhancedAnalysis(dbAdapter, meta, g)
-	}
-
-	// 4. 推断关系
-	fmt.Println("\n🔗 推断表间关系...")
-	inferer := analyzer.NewRelationshipInferer(dbAdapter)
-	edges, err := inferer.InferRelationships(meta)
-	if err != nil {
-		log.Printf("推断关系时出错: %v", err)
-	} else {
-		for _, edge := range edges {
-			g.AddEdge(edge)
-		}
-		fmt.Printf("✓ 发现 %d 个推断关系\n", len(edges))
 	}
 
 	// 4. 检测枚举表
@@ -240,6 +222,18 @@ func runAIEnhancedAnalysis(dbAdapter adapter.DBAdapter, meta *adapter.SchemaMeta
 	
 	// 将 AI 解释添加到 Graph 节点
 	for tableName, table := range enhanced.Tables {
+		// 添加表解释
+		if table.Explanation != nil {
+			tableNode := g.GetNode(tableName)
+			if tableNode != nil {
+				tableNode.Properties["ai_chinese_name"] = table.Explanation.ChineseName
+				tableNode.Properties["ai_description"] = table.Explanation.Description
+				tableNode.Properties["ai_business_meaning"] = table.Explanation.BusinessMeaning
+				tableNode.Properties["ai_confidence"] = table.Explanation.Confidence
+			}
+		}
+		
+		// 添加字段解释
 		for colName, col := range table.Columns {
 			if col.Explanation != nil {
 				nodeID := fmt.Sprintf("%s.%s", tableName, colName)
@@ -252,6 +246,32 @@ func runAIEnhancedAnalysis(dbAdapter adapter.DBAdapter, meta *adapter.SchemaMeta
 				}
 			}
 		}
+	}
+	
+	// 添加 AI 分析的表关系到 Graph
+	for _, rel := range enhanced.TableRelationships {
+		edge := &graph.Edge{
+			ID:         fmt.Sprintf("%s->%s", rel.FromTable, rel.ToTable),
+			Type:       graph.EdgeTypeInferredFK,
+			From:       rel.FromTable,
+			To:         rel.ToTable,
+			Confidence: rel.Confidence,
+			Evidence: []graph.Evidence{
+				{
+					Type:        "ai_inferred",
+					Score:       rel.Confidence,
+					Description: "AI 推断的表关系",
+					Details:     rel.Description,
+				},
+			},
+			Properties: map[string]interface{}{
+				"from_table":    rel.FromTable,
+				"to_table":      rel.ToTable,
+				"relation_type": rel.RelationType,
+				"description":   rel.Description,
+			},
+		}
+		g.AddEdge(edge)
 	}
 	
 	fmt.Println("✓ AI 分析完成")

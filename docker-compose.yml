@@ -8,14 +8,14 @@ services:
       - ./output:/output
     environment:
       - DB_TYPE=mysql
-      - DB_CONN=root:password@tcp(mysql:3306)/testdb
+      - DB_CONN=root:your_password@tcp(mysql:3306)/testdb
       - DB_SCHEMA=testdb
     depends_on:
       - mysql
     command: >
       scan
       --type mysql
-      --conn "root:password@tcp(mysql:3306)/testdb"
+      --conn "root:your_password@tcp(mysql:3306)/testdb"
       --schema testdb
       --output /output
 
@@ -23,7 +23,7 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: your_password
       MYSQL_DATABASE: testdb
     ports:
       - "3306:3306"
